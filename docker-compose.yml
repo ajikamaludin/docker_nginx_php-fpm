@@ -1,0 +1,56 @@
+version: '2'
+services:
+    ##
+    # Autodiscovery : Consul
+    ##
+    autodiscovery:
+        build: ./autodiscovery/
+        mem_limit: 128m
+        expose:
+            - 53
+            - 8300
+            - 8301
+            - 8302
+            - 8400
+            - 8500
+        ports:
+            - 8500:8500
+        dns:
+            - 127.0.0.1
+
+    ##
+    # Battle Microservice
+    ##
+    base_fpm:
+        user: ${CURRENT_UID}
+        build: ./engine/base/php-fpm/
+        volumes_from:
+            - source_code
+        links:
+            - autodiscovery
+        expose:
+            - 9000
+        environment:
+            - BACKEND=base-nginx
+            - CONSUL=autodiscovery
+
+    base_nginx:
+        user: ${CURRENT_UID}
+        build: ./engine/base/nginx/
+        volumes_from:
+            - source_code
+        links:
+            - autodiscovery
+            - base_fpm
+        environment:
+            - BACKEND=base-fpm
+            - CONSUL=autodiscovery
+        ports:
+            - 8080:80
+            - 9091:9090
+
+    source_code:
+        image: nginx:stable
+        volumes:
+            - ./code:/var/www/html
+        command: "true"
